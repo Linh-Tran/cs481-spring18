@@ -165,7 +165,11 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
-    return;
+	cmdline[strlen(cmdline) -1] = 0; /* removes the newline */
+	char **argv = &cmdline;
+	if(!builtin_cmd(argv)){
+		printf("%p is not a builtin_cmd\n", cmdline);
+	}
 }
 
 /* 
@@ -231,6 +235,21 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
+	char *cmd = argv[0];
+    if(strcmp(argv[0],"quit")== 0){
+      exit(0);
+    }
+    
+    if(!strcmp(cmd, "jobs")){
+      listjobs(jobs);
+      return 1;
+    }
+
+    if(!strcmp(cmd, "bg") || !strcmp(cmd, "fg")){
+      do_bgfg(argv);
+      return 1;
+    }
+
     return 0;     /* not a builtin command */
 }
 
@@ -273,6 +292,9 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
+  if(kill(fgpid(jobs),sig) < 0){
+    unix_error("kill (int) error");
+  }
     return;
 }
 
