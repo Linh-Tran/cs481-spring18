@@ -165,27 +165,36 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
-	// cmdline[strlen(cmdline) -1] = 0; /* removes the newline */
 	char *argv[MAXARGS];
 
-	int job_type = parseline(cmdline, argv);
+	int background_job = parseline(cmdline, argv);
 
 	if(!builtin_cmd(argv)){
-	
-		pid_t pid = fork();
+		pid_t c_pid = fork();
 
-		if(pid < 0){
+		if(c_pid < 0){
 			unix_error("Failed to fork proccess");
 		}
-		else if(pid == 0){
+		else if(c_pid == 0){
+			setpgid(0,0); /* sets the calling process id equal to the group id*/
 			execve(argv[0], argv, environ);
 		}
 		else{
-			wait(NULL);
+			if(background_job)
+			{
+				addjob(jobs,c_pid,BG,cmdline);
+				printf("[%d] (%d) %s", pid2jid(c_pid), c_pid, cmdline);
+			}
+			else{
+				addjob(jobs,c_pid,FG,cmdline);
+				waitfg(c_pid);
+				return;
+			}
 			// printf("Parent process running\n");
 		}
 
 	}
+	return;
 }
 
 /* 
@@ -282,9 +291,20 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    while(fgpid(jobs)){
-    	sleep(1);
-    }
+	struct job_t *job = getjobpid(jobs,pid);
+
+	//if the job corresponding to the pid is in the list then wait 
+	//otherwise return.
+
+	if(!job){
+		return;
+	}
+
+ //    while(job->pid==pid && job->state == FG)
+	// {
+	// 	sleep(1);
+ //    }
+    return;
 }
 
 /*****************
@@ -313,6 +333,7 @@ void sigint_handler(int sig)
   if(kill(fgpid(jobs),sig) < 0){
     unix_error("kill (int) error");
   }
+  return;
 }
 
 /*
@@ -325,6 +346,7 @@ void sigtstp_handler(int sig)
   if(kill(fgpid(jobs),sig) < 0){
     unix_error("kill (int) error");
   }
+  return;
 }
 
 /*********************
