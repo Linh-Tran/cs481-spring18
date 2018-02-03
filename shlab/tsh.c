@@ -165,10 +165,26 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
-	cmdline[strlen(cmdline) -1] = 0; /* removes the newline */
-	char **argv = &cmdline;
+	// cmdline[strlen(cmdline) -1] = 0; /* removes the newline */
+	char *argv[MAXARGS];
+
+	int job_type = parseline(cmdline, argv);
+
 	if(!builtin_cmd(argv)){
-		printf("%p is not a builtin_cmd\n", cmdline);
+	
+		pid_t pid = fork();
+
+		if(pid < 0){
+			unix_error("Failed to fork proccess");
+		}
+		else if(pid == 0){
+			execve(argv[0], argv, environ);
+		}
+		else{
+			wait(NULL);
+			// printf("Parent process running\n");
+		}
+
 	}
 }
 
@@ -266,7 +282,9 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    return;
+    while(fgpid(jobs)){
+    	sleep(1);
+    }
 }
 
 /*****************
@@ -295,7 +313,6 @@ void sigint_handler(int sig)
   if(kill(fgpid(jobs),sig) < 0){
     unix_error("kill (int) error");
   }
-    return;
 }
 
 /*
@@ -305,7 +322,9 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
-    return;
+  if(kill(fgpid(jobs),sig) < 0){
+    unix_error("kill (int) error");
+  }
 }
 
 /*********************
