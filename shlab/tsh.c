@@ -187,12 +187,13 @@ void eval(char *cmdline)
 		else{
 			if(!background_job)
 			{
+				// printf("PID: %d\n", c_pid);
 				addjob(jobs,c_pid,FG,cmdline);
 				waitfg(c_pid);
 				return;
 			}
 			else{
-				
+				// printf("PID: %d\n", c_pid);
 				addjob(jobs,c_pid,BG,cmdline);
 				printf("[%d] (%d) %s", pid2jid(c_pid), c_pid, cmdline);
 			}
@@ -313,6 +314,8 @@ void waitfg(pid_t pid)
 	{
 		sleep(0);
 	}
+
+	printf("waitfg: Process (%d) no longer the fg process\n", pid);
     return;
 }
 
@@ -329,7 +332,9 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-
+	if(verbose){
+		printf("sigchld_handler: entering\n");
+	}
 	int status;
 	pid_t pid = fgpid(jobs);
 
@@ -340,6 +345,10 @@ void sigchld_handler(int sig)
 		/* Child exited normally job is deleted from the job list */
 		if(WIFEXITED(status)){
 			deletejob(jobs,pid);
+			if(verbose){
+				printf("sigchld_handler: Job [%d] (%d) deleted\n",pid2jid(pid), pid);
+				printf("sigchld_handler: Job [%d] (%d) terminates OK (status %d)\n", pid2jid(pid), pid, status);
+			}
 		}
 
 		/* Idea about signal and why SIGINT could not be caught */
@@ -357,6 +366,8 @@ void sigchld_handler(int sig)
 			sigtstp_handler(-1);
 		}
 	}
+
+	printf("sigchld_handler: exiting\n");
     return;
 }
 
