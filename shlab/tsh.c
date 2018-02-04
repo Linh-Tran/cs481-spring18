@@ -176,23 +176,27 @@ void eval(char *cmdline)
 			unix_error("Failed to fork proccess");
 		}
 		else if(c_pid == 0){
-			setpgid(0,0); /* sets the calling process id equal to the group id*/
-			execve(argv[0], argv, environ);
+			if(setpgid(0,0)<0){
+				unix_error("Failed setpgid");
+			} /* sets the calling process id equal to the group id*/
+			
+			if(execve(argv[0], argv, environ)<0){
+				unix_error("Failed execve");
+			}
 		}
 		else{
-			if(background_job)
+			if(!background_job)
 			{
-				addjob(jobs,c_pid,BG,cmdline);
-				printf("[%d] (%d) %s", pid2jid(c_pid), c_pid, cmdline);
-			}
-			else{
 				addjob(jobs,c_pid,FG,cmdline);
 				waitfg(c_pid);
 				return;
 			}
-			// printf("Parent process running\n");
+			else{
+				
+				addjob(jobs,c_pid,BG,cmdline);
+				printf("[%d] (%d) %s", pid2jid(c_pid), c_pid, cmdline);
+			}
 		}
-
 	}
 	return;
 }
@@ -291,19 +295,24 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-	struct job_t *job = getjobpid(jobs,pid);
+	// struct job_t *job = getjobpid(jobs,pid);
 
-	//if the job corresponding to the pid is in the list then wait 
-	//otherwise return.
+	// //if the job corresponding to the pid is in the list then wait 
+	// //otherwise return.
 
-	if(!job){
-		return;
-	}
+	// if(!job){
+	// 	return;
+	// }
 
  //    while(job->pid==pid && job->state == FG)
 	// {
 	// 	sleep(1);
  //    }
+
+	while(fgpid(jobs))
+	{
+		sleep(0);
+	}
     return;
 }
 
@@ -320,6 +329,34 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
+
+	int status;
+	pid_t pid = fgpid(jobs);
+
+	/* Idea on how to use waitpid options*/ 
+	/*link: https://stackoverflow.com/questions/33508997/waitpid-wnohang-wuntraced-how-do-i-use-these*/
+	while((waitpid(-1, &status, WNOHANG | WUNTRACED))>0){
+
+		/* Child exited normally job is deleted from the job list */
+		if(WIFEXITED(status)){
+			deletejob(jobs,pid);
+		}
+
+		/* Idea about signal and why SIGINT could not be caught */
+		/* https://stackoverflow.com/questions/21619086/signal-not-caught-when-sending-sigusr1-or-sigint-to-stopped-process-until-you-co */
+		/* Child process terminated due to recieving uncaught signal */
+		else if(WIFSIGNALED(status)){
+			deletejob(jobs,pid); /* delete the job and handle the signal */
+			sigint_handler(-1);
+		}
+
+		/*Child process stopped, change its state to ST and handle signal*/
+		else if(WIFSTOPPED(status)){
+			struct job_t *job = getjobpid(jobs,pid);
+			job->state = ST;
+			sigtstp_handler(-1);
+		}
+	}
     return;
 }
 
@@ -330,8 +367,12 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-  if(kill(fgpid(jobs),sig) < 0){
-    unix_error("kill (int) error");
+  /* Sends the SIGINT to its processes */
+  int pid = fgpid(jobs);
+  if(pid != 0){ /* check if is a foreground process */
+ 	 if(kill(-pid,SIGINT) < 0){ 
+  	  unix_error("kill (int) error");
+  	}
   }
   return;
 }
@@ -343,8 +384,12 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
-  if(kill(fgpid(jobs),sig) < 0){
-    unix_error("kill (int) error");
+  /* Sends SIGTSTP to its processes*/
+  int pid = fgpid(jobs);
+  if(pid != 0){ /* check if is a foreground process */
+ 	 if(kill(-pid,SIGINT) < 0){
+  	  unix_error("kill (int) error");
+  	}
   }
   return;
 }
