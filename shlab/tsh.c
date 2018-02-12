@@ -168,59 +168,65 @@ void eval(char *cmdline)
 	/* Idea on blocking signals to avoid race conditions */
 	/* https://lasr.cs.ucla.edu/vahab/resources/signals.html */
 	char *argv[MAXARGS];
+	int background_job;
+	sigset_t signal_set;
+	pid_t c_pid;
 
-	int background_job = parseline(cmdline, argv);
+	background_job = parseline(cmdline, argv);
 
-	if(argv[0]==NULL){}
+	if(argv[0]==NULL){
+		return;
+	}
+
+	if(sigemptyset(&signal_set)<0){
+		unix_error("Error sigemptyset");
+	}
+	if(sigaddset(&signal_set, SIGCHLD)<0){
+		unix_error("Error sigaddset");
+	}
+
 	if(!builtin_cmd(argv)){
 
 		//block SIGCHLD using sigprocmask
 		//so that the child won't terminate before we add it to the list of
 		//jobs.
-
-		sigset_t signal_set;
-		sigaddset(&signal_set, SIGCHLD);
-
-		if(sigprocmask(SIG_BLOCK, &signal_set, NULL) < -1)
-		{
+		if(sigprocmask(SIG_BLOCK, &signal_set, NULL) < 0){
 			unix_error("Failed block SIGCHILD");
 		}
 
-		pid_t c_pid = fork();
+		c_pid = fork();
 
 		if(c_pid < 0){
 			unix_error("Failed to fork proccess");
 		}
 		else if(c_pid == 0){
+
+			if(sigprocmask(SIG_UNBLOCK, &signal_set, NULL) < 0){
+				unix_error("Failed unblock SIGCHILD");
+			}
+
 			if(setpgid(0,0)<0){
 				unix_error("Failed setpgid");
 			} /* sets the calling process id equal to the group id*/
-			
 			if(execve(argv[0], argv, environ)<0){
 				unix_error("Failed execve");
 			}
 		}
 		else{
+			if(!addjob(jobs,c_pid,(background_job == 1 ? BG:FG), cmdline)){
+				unix_error("error addjob");
+			}
+
+			if(sigprocmask(SIG_UNBLOCK, &signal_set, NULL)){
+				unix_error("error sigprocmask");
+			}
+
 			if(!background_job){
-				// printf("line 193 PID: %d\n", c_pid);
-				// addjob(jobs,c_pid,FG,cmdline);
 				waitfg(c_pid);
-				addjob(jobs,c_pid,BG,cmdline);
 				return;
 			}
 			else{
-				// printf("line 199 PID: %d\n", c_pid);
-				// addjob(jobs,c_pid,BG,cmdline);
-				addjob(jobs,c_pid,BG,cmdline);
 				printf("[%d] (%d) %s", pid2jid(c_pid), c_pid, cmdline);	
-			}
-
-
-			
-
-			//unblock SIGCHILD
-			if(sigprocmask(SIG_UNBLOCK, &signal_set, NULL) < 0){
-				unix_error("Failed unblock SIGCHILD");
 			}
 		}
 	}
@@ -290,17 +296,16 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
-	char *cmd = argv[0];
     if(strcmp(argv[0],"quit")== 0){
       exit(0);
     }
     
-    if(!strcmp(cmd, "jobs")){
+    if(!strcmp(argv[0], "jobs")){
       listjobs(jobs);
       return 1;
     }
 
-    if(!strcmp(cmd, "bg") || !strcmp(cmd, "fg")){
+    if(!strcmp(argv[0], "bg") || !strcmp(argv[0], "fg")){
       do_bgfg(argv);
       return 1;
     }
@@ -352,15 +357,12 @@ void sigchld_handler(int sig)
 	if(verbose){
 		printf("sigchld_handler: entering\n");
 	}
-	int status;
-	// pid_t pid = fgpid(jobs);
-
+	
 	/* Idea on how to use waitpid options*/ 
 	/*link: https://stackoverflow.com/questions/33508997/waitpid-wnohang-wuntraced-how-do-i-use-these*/
-	
-	pid_t pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
-
-	while(pid > 0){
+	pid_t pid;
+	int status;
+	while((pid = waitpid(-1, &status, WNOHANG | WUNTRACED))> 0){
 
 		/* Child exited normally job is deleted from the job list */
 		if(WIFEXITED(status)){
@@ -384,16 +386,15 @@ void sigchld_handler(int sig)
 				printf("sigchld_handler: Job [%d] (%d) deleted\n",pid2jid(pid), pid);
 				printf("sigchld_handler: Job [%d] (%d) terminated by signal %d\n", pid2jid(pid),pid,status);
 			}
-			sigint_handler(-1);
+			//sigint_handler(-1);
 		}
 
 		/*Child process stopped, change its state to ST and handle signal*/
 		if(WIFSTOPPED(status)){
 			struct job_t *job = getjobpid(jobs,pid);
 			job->state = ST;
-			sigtstp_handler(-1);
+			//sigtstp_handler(-1);
 		}
-		pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
 	}
 
 	// printf("sigchld_handler: exiting\n");
