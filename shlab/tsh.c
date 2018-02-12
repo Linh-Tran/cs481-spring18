@@ -406,21 +406,19 @@ void sigchld_handler(int sig)
 		/* https://stackoverflow.com/questions/21619086/signal-not-caught-when-sending-sigusr1-or-sigint-to-stopped-process-until-you-co */
 		/* Child process terminated due to recieving uncaught signal */
 		if(WIFSIGNALED(status)){
-			printf("Job [%d] (%d) terminated by signal %d\n", job->jid, job->pid, status);
 			if(verbose){
 				printf("sigchld_handler: Job [%d] (%d) deleted\n",pid2jid(pid), pid);
 			}
+			printf("Job [%d] (%d) terminated by signal %d\n", job->jid, job->pid, status);
+			
 			if(!deletejob(jobs,pid)) {
 				app_error("Deleting job failed line 362\n");
 			}/* delete the job and handle the signal */
-			
-			sigint_handler(-1);
 		}
 
 		/*Child process stopped, change its state to ST and handle signal*/
 		if(WIFSTOPPED(status)){
 			job->state = ST;
-			sigtstp_handler(-1);
 		}
 	}
 
