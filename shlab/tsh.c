@@ -394,31 +394,31 @@ void sigchld_handler(int sig)
 		if(WIFEXITED(status)){
 			if(verbose){
 				printf("sigchld_handler: Job [%d] (%d) deleted\n",pid2jid(pid), pid);
-				printf("sigchld_handler: Job [%d] (%d) terminates OK (status %d)\n", pid2jid(pid), pid, status);
+				printf("sigchld_handler: Job [%d] (%d) terminates OK (status %d)\n", pid2jid(pid), pid, WTERMSIG(status));
 			}
 			if(!deletejob(jobs,pid)) {
 				app_error("Deleting job failed line 362\n");
 			}
-			
+		}
+
+		/*Child process stopped, change its state to ST and handle signal*/
+		else if(WIFSTOPPED(status)){
+			printf("Job [%d] (%d) stopped by signal %d\n",job->jid, job->pid, WSTOPSIG(status));
+			job->state = ST;
 		}
 
 		/* Idea about signal and why SIGINT could not be caught */
 		/* https://stackoverflow.com/questions/21619086/signal-not-caught-when-sending-sigusr1-or-sigint-to-stopped-process-until-you-co */
 		/* Child process terminated due to recieving uncaught signal */
-		if(WIFSIGNALED(status)){
+		else if(WIFSIGNALED(status)){
 			if(verbose){
 				printf("sigchld_handler: Job [%d] (%d) deleted\n",pid2jid(pid), pid);
 			}
-			printf("Job [%d] (%d) terminated by signal %d\n", job->jid, job->pid, status);
+			printf("Job [%d] (%d) terminated by signal %d\n", job->jid, job->pid, WTERMSIG(status));
 			
 			if(!deletejob(jobs,pid)) {
 				app_error("Deleting job failed line 362\n");
 			}/* delete the job and handle the signal */
-		}
-
-		/*Child process stopped, change its state to ST and handle signal*/
-		if(WIFSTOPPED(status)){
-			job->state = ST;
 		}
 	}
 
@@ -441,7 +441,7 @@ void sigint_handler(int sig)
   /* Sends the SIGINT to its processes */
   int pid = fgpid(jobs);
   if(pid != 0){ /* check if is a foreground process */
- 	 if(kill(-pid,SIGINT) <0){ 
+ 	 if(kill(-pid,sig) <0){ 
  	 	unix_error("kill (int) error");
   	 }
   	 else{
@@ -465,12 +465,25 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
+  if(verbose){
+  	printf("sigtstp_handler: entering\n");
+  }
   /* Sends SIGTSTP to its processes*/
   int pid = fgpid(jobs);
   if(pid != 0){ /* check if is a foreground process */
- 	 if(kill(-pid,SIGINT) < 0){
+ 	if(kill(-pid,sig) < 0){
   	  unix_error("kill (int) error");
   	}
+  	else{
+  		if(verbose){
+  			printf("sigtstp_handler: Job [%d] (%d) stopped\n", pid2jid(pid), pid);
+  		}
+  	}
+
+  }
+
+  if(verbose){
+  	printf("sigtstp_handler: exiting\n");
   }
   return;
 }
