@@ -377,7 +377,9 @@ void do_bgfg(char **argv)
 		printf("%s command requires PID or %%jobid argument\n", argv[0]);
 	}
 	else if(strstr(argv[1],"%") != NULL){
-		printf("%d\n",sscanf(argv[1],"%%%d",&id));
+		if(sscanf(argv[1],"%%%d",&id)<1){
+			printf("Not enough arguments\n");
+		}
 		// printf("%d\n", argv);
 		// if(argc == 0){
 		// 	printf("%s command requires PID or %%jobid argument\n", argv[0]);
