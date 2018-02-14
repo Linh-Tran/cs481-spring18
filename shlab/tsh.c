@@ -57,6 +57,7 @@ struct job_t jobs[MAXJOBS]; /* The job list */
 /* Here are the functions that you will implement */
 void eval(char *cmdline);
 int builtin_cmd(char **argv);
+struct job_t *do_bgfg_helper(int id);
 void do_bgfg(char **argv);
 void waitfg(pid_t pid);
 
@@ -224,7 +225,7 @@ void eval(char *cmdline)
 
 			//Execute the child in a new enviorment pointed to by argv[0]
 			if(execve(argv[0], argv, environ)<0){
-				unix_error("Failed execve");
+				printf("%s: Command not found\n", argv[0]);
 			}
 		}
 		else{
@@ -317,7 +318,7 @@ int parseline(const char *cmdline, char **argv)
 int builtin_cmd(char **argv) 
 {
 	//Terminate the shell program.
-    if(strcmp(argv[0],"quit")== 0){
+    if(!strcmp(argv[0],"quit")){
       exit(0);
     }
     
@@ -336,11 +337,77 @@ int builtin_cmd(char **argv)
     return 0;     /* not a builtin command */
 }
 
+/*
+ * do_bgfg_helper - Takes in the pid or jid and returns the job pid that corresponds with it.
+ */
+struct job_t *do_bgfg_helper(int id){
+	struct job_t *job;
+
+	//Argument is a jid 
+	if(id <= maxjid(jobs)){
+		    
+		if((job = getjobjid(jobs,id)) == NULL){
+			app_error("No such job");
+			printf("%%[%d]\n: No such job", id);
+		}
+	}
+
+    //Argument is a pid;
+    else{
+    	if((job = getjobpid(jobs,id)) ==NULL){
+    		app_error("No such job");
+    		printf("%%[%d]\n: No such job", id);
+    	}
+    }
+
+    return job;
+
+}
+
 /* 
  * do_bgfg - Execute the builtin bg and fg commands
  */
 void do_bgfg(char **argv) 
 {
+	int id;
+	struct job_t *job;
+	int argc;
+
+	if(argv[1]== NULL){
+		printf("%s command requires PID or %%jobid argument\n", argv[0]);
+	}
+	else if(strstr(argv[1],"%") != NULL){
+		printf("%d\n",sscanf(argv[1],"%%%d",&id));
+		// printf("%d\n", argv);
+		// if(argc == 0){
+		// 	printf("%s command requires PID or %%jobid argument\n", argv[0]);
+		// }
+		// printf("ID: %d\n", id);
+		// if(id == NULL){
+		// 	printf("%s command requires PID or %%jobid argument\n", argv[0]);
+		// }
+		job = do_bgfg_helper(id);
+
+		kill(-(job->pid), SIGCONT); //Sends the SIGCONT to restart the job.
+		if(!strcmp(argv[0], "bg")){
+			//Change a stopped background job to a running background job.
+			job->state = BG;
+			printf("[%d] (%d) %s", job->jid, job->pid,job->cmdline);
+		}
+		else{
+			// Change a stopped or running background job to a running in the foreground.
+			job->state = FG;
+			waitfg(job->pid);
+			//sends SIGCONT signal and run it in the foreground with either PID or JID.
+		}
+	}
+	
+	else{
+		printf("%s command requires PID or %%jobid argument\n", argv[0]);
+	}
+
+	
+
     return;
 }
 
