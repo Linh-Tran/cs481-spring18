@@ -57,7 +57,6 @@ struct job_t jobs[MAXJOBS]; /* The job list */
 /* Here are the functions that you will implement */
 void eval(char *cmdline);
 int builtin_cmd(char **argv);
-struct job_t *do_bgfg_helper(int id);
 void do_bgfg(char **argv);
 void waitfg(pid_t pid);
 
@@ -337,37 +336,13 @@ int builtin_cmd(char **argv)
     return 0;     /* not a builtin command */
 }
 
-/*
- * do_bgfg_helper - Takes in the pid or jid and returns the job pid that corresponds with it.
- */
-struct job_t *do_bgfg_helper(int id){
-	struct job_t *job;
-
-	//Argument is a jid 
-	if(id <= maxjid(jobs)){
-
-		if((job = getjobjid(jobs,id)) == NULL){
-			return NULL;
-		}
-	}
-
-    //Argument is a pid;
-    else{
-    	if((job = getjobpid(jobs,id)) ==NULL){
-    		return NULL;
-    	}
-    }
-
-    return job;
-
-}
-
 /* 
  * do_bgfg - Execute the builtin bg and fg commands
  */
 void do_bgfg(char **argv) 
 {
-	int id;
+	char *id;
+	int id_num;
 	struct job_t *job;
 
 	if(argv[1]== NULL){
@@ -376,46 +351,51 @@ void do_bgfg(char **argv)
 	}
 
 	//Source: http://www.cplusplus.com/reference/cstring/strstr/
-	else if(strstr(argv[1],"%")!= NULL){
+	if(strstr(argv[1],"%")!= NULL){
 
 		//Source: https://stackoverflow.com/questions/4108286/why-is-atoi-giving-me-a-segmentation-fault
-		if((id = atoi(&argv[1][1]))!=0){
-
-			if((job = do_bgfg_helper(id))!=NULL){
-
-				kill(-(job->pid), SIGCONT); //Sends the SIGCONT to restart the job.
-				// printf("Line 401\n");
-				if(!strcmp(argv[0], "bg")){
-					//Change a stopped background job to a running background job.
-					job->state = BG;
-					printf("[%d] (%d) %s", job->jid, job->pid,job->cmdline);
-				}
-				else{
-					//check state of the process if it is a background job.
-					if(job->state==BG){
-						printf("Yes I am a background job, %d\n", job->state);
-					}
-
-					// Change a stopped or running background job to a running in the foreground.
-					job->state = FG;
-					waitfg(job->pid);
-				}
-			}
-			else{
-				printf("%%%d: No such job\n", id);
-			}
+		id = &argv[1][1];
+		if((id_num = atoi(id)) == 0){
+			printf("%%%s: No such job\n", &argv[1][1]);
+			return;
 		}
-		else{
-			printf("%%%d: No such job\n", id);
+
+		job = getjobjid(jobs,id_num);
+
+		if(job==NULL){
+			printf("%%%d: No such job\n", id_num);
+			return;
 		}
 	}
-	
+	else if(isdigit(argv[1][0])){
+		id_num = atoi(argv[1]);
+		job = getjobpid(jobs, id_num);
+		if(job==NULL){
+			printf("(%d): No such process\n", id_num);
+			return;
+		}
+	}
 	else {
 		//Argument is not a digit print error
 		if(!isdigit(atoi(argv[1]++))){
 			printf("%s: argument must be a PID or %%jobid\n", argv[0]);
+			return;
 		}
 	}
+
+	kill(-job->pid, SIGCONT); //Sends the SIGCONT to restart the job.
+
+	if(!strcmp(argv[0], "bg")){
+		//Change a stopped background job to a running background job.
+		job->state = BG;
+		printf("[%d] (%d) %s", job->jid, job->pid,job->cmdline);
+	}
+	else{
+		// Change a stopped or running background job to a running in the foreground.
+		job->state = FG;
+		waitfg(job->pid);
+	}
+	
 	
     return;
 }
