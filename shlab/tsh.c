@@ -355,21 +355,30 @@ void do_bgfg(char **argv)
 	if(strstr(argv[1],"%")!= NULL){
 
 		//Source: https://stackoverflow.com/questions/4108286/why-is-atoi-giving-me-a-segmentation-fault
+		//Checks if the argument after the % is a integer with atoi.
 		id = &argv[1][1];
 		if((id_num = atoi(id)) == 0){
 			printf("%%%s: No such job\n", &argv[1][1]);
 			return;
 		}
 
+		//get the job returned from getjobjid.
 		job = getjobjid(jobs,id_num);
 
+		//check if it is null.
 		if(job==NULL){
 			printf("%%%d: No such job\n", id_num);
 			return;
 		}
+
+
 	}
+
+	//checks if the argument pointer to argv[1][0] at digit ex. fg 3
 	else if(isdigit(argv[1][0])){
 		id_num = atoi(argv[1]);
+
+		//Check if job exists
 		job = getjobpid(jobs, id_num);
 		if(job==NULL){
 			printf("(%d): No such process\n", id_num);
@@ -475,7 +484,7 @@ void sigchld_handler(int sig)
 			
 			if(!deletejob(jobs,pid)) {
 				app_error("Deleting job failed line 362\n");
-			}/* delete the job and handle the signal */
+			}/* delete the job*/
 		}
 	}
 
@@ -498,6 +507,8 @@ void sigint_handler(int sig)
   /* Sends the SIGINT to its processes */
   int pid = fgpid(jobs);
   if(pid != 0){ /* check if is a foreground process */
+
+  	//Sends SIGINT to the process to the foreground job.
  	 if(kill(-pid,sig) <0){ 
  	 	unix_error("kill (int) error");
   	 }
@@ -528,6 +539,8 @@ void sigtstp_handler(int sig)
   /* Sends SIGTSTP to its processes*/
   int pid = fgpid(jobs);
   if(pid != 0){ /* check if is a foreground process */
+
+  	//Sends SIGTSTP to the foreground process.
  	if(kill(-pid,sig) < 0){
   	  unix_error("kill (int) error");
   	}
