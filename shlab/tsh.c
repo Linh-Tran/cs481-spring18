@@ -225,6 +225,7 @@ void eval(char *cmdline)
 			//Execute the child in a new enviorment pointed to by argv[0]
 			if(execve(argv[0], argv, environ)<0){
 				printf("%s: Command not found\n", argv[0]);
+				exit(0);
 			}
 		}
 		else{
