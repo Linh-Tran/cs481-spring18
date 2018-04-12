@@ -1,4 +1,5 @@
 #EXECUTABLES = elevator_null elevator_part_1 elevator_part_2 reorder double-check
+#pragma GCC diagnostic ignored "-Wall"
 EXECUTABLES = elevator_null reorder double-check
 
 CC = gcc

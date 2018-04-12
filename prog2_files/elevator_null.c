@@ -13,14 +13,16 @@
 /*set up the global list and a condition
 variable for blocking elevators.*/
 
-Dllist *global_list;
+Dllist global_list;
+int count = 0;
 pthread_cond_t condVar = PTHREAD_COND_INITIALIZER;
 
 void initialize_simulation(Elevator_Simulation *es)
 {
   printf("Calling initialize_simulation\n");
-	global_list = new_dllist();
-	es->v = global_list;
+	// global_list = new_dllist();
+	// es->v = global_list;
+  es->v = (void *) new_dllist();
 	return;
 }
 
@@ -48,11 +50,15 @@ void wait_for_elevator(Person *p)
 
   //lock the critical section
   pthread_mutex_lock(p->es->lock);
+  global_list = (Dllist) p->es->v;
   dll_append(global_list, new_jval_v((void *) p));
+  count++;
   pthread_mutex_unlock(p->es->lock);
 
   //blocking the person's condition variable
   pthread_cond_wait(p->cond, p->lock);
+
+  pthread_mutex_unlock(p->lock);
 
   return;
 }
@@ -98,18 +104,28 @@ void *elevator(void *arg)
 
   printf("calling elevator \n");
   Elevator *e = (Elevator *)arg;
-  while(!dll_empty(global_list))
+  Person *p = NULL;
+  while(1)
   {
-    pthread_mutex_lock(e->lock);
-    pthread_cond_wait(e->cond, e->lock);
-    pthread_mutex_unlock(e->lock);
+    // pthread_mutex_lock(e->es->lock);
+    // pthread_cond_wait(e->cond, e->lock);
+    // pthread_mutex_unlock(e->es->lock);
 
-    
-    printf("Size of list %lu", sizeof(struct dllist));
-    // if(!(dllist_empty(e->people)))
-    // {
-    // 	printf("Number of people in elevator list %lu", sizeof(struct dllist));
-    // }
+    if(!dll_empty(global_list)){
+      pthread_mutex_lock(e->es->lock);
+      //take the first person of global_list
+      Dllist first_person = dll_first(global_list);
+      p = (Person*) first_person;
+      // //remove person from global list
+      count --;
+      dll_delete_node(first_person);
+      pthread_mutex_unlock(e->es->lock);
+
+      printf("person floor %s %d\n", p->fname, p->from);
+      printf("elevator’s current floor %d\n", e->onfloor);
+    }
+
+
   }
   return NULL;
 }
