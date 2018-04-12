@@ -20,9 +20,9 @@ pthread_cond_t condVar = PTHREAD_COND_INITIALIZER;
 void initialize_simulation(Elevator_Simulation *es)
 {
   printf("Calling initialize_simulation\n");
-	// global_list = new_dllist();
-	// es->v = global_list;
-  es->v = (void *) new_dllist();
+	global_list = new_dllist();
+	es->v = global_list;
+  // es->v = (void *) new_dllist();
 	return;
 }
 
@@ -115,7 +115,7 @@ void *elevator(void *arg)
       pthread_mutex_lock(e->es->lock);
       //take the first person of global_list
       Dllist first_person = dll_first(global_list);
-      p = (Person*) first_person;
+      p = (Person*) jval_v(dll_val(first_person));
       // //remove person from global list
       count --;
       dll_delete_node(first_person);
