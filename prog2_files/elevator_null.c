@@ -12,18 +12,13 @@
 #include "dllist.h"
 /*set up the global list and a condition
 variable for blocking elevators.*/
-
 Dllist global_list;
-int count = 0;
-pthread_cond_t condVar = PTHREAD_COND_INITIALIZER;
-
 void initialize_simulation(Elevator_Simulation *es)
 {
-  // printf("Calling initialize_simulation\n");
-	global_list = new_dllist();
-	es->v = global_list;
   // es->v = (void *) new_dllist();
-	return;
+  global_list = new_dllist();
+  es->v = global_list;
+  return;
 }
 
 void initialize_elevator(Elevator *e)
@@ -102,22 +97,27 @@ floor, opens its door, signals the person and blocks. When the person wakes it u
 and re-executes its while loop.*/
 void *elevator(void *arg)
 {
-
   // printf("calling elevator \n");
   Elevator *e = (Elevator *)arg;
   Person *p = NULL;
   while(1)
   {
     //if the there is people waiting on the global list queue
+    pthread_mutex_lock(e->es->lock);
+    global_list = (Dllist) e->es->v;
     if(!dll_empty(global_list)){
-      pthread_mutex_lock(e->es->lock);
       //take the first person of global_list
       Dllist first_person = dll_first(global_list);
       p = (Person*) jval_v(dll_val(first_person));
       // //remove person from global list
       dll_delete_node(first_person);
-      pthread_mutex_unlock(e->es->lock);
+    }
+    pthread_mutex_unlock(e->es->lock);
 
+    if(p == NULL)
+    {
+      continue;
+    }
       // printf("person floor %s %d\n", p->fname, p->from);
       // printf("elevator’s current floor %d\n", e->onfloor);
 
@@ -142,9 +142,9 @@ void *elevator(void *arg)
       if(!e->door_open)
       {
         open_door(e);
-        p->e = e; // add elevator to person's e field        
+             
       }
-
+      p->e = e; // add elevator to person's e field  
       // printf("elevator is on %s ",e->door_open);
       //This point the elevator should wake up the person to let them in the elevator
       pthread_mutex_lock(e->lock);
@@ -172,11 +172,6 @@ void *elevator(void *arg)
       pthread_mutex_lock(e->lock);
       pthread_cond_wait(e->cond, e->lock);
       pthread_mutex_unlock(e->lock);
-
-
-
     }
-
-  }
   return NULL;
 }
