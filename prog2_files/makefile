@@ -2,9 +2,9 @@
 #pragma GCC diagnostic ignored "-Wall"
 EXECUTABLES = elevator_null reorder double-check
 
-CC = gcc
+CC = gcc 
 LIBS = libfdr.a
-CFLAGS = -O2
+CFLAGS = -O2 -g
 
 LIBFDROBJS = dllist.o fields.o jval.o jrb.o
 
@@ -26,8 +26,14 @@ elevator_null: elevator_skeleton.o elevator_null.o finesleep.o libfdr.a
 elevator_part_1: elevator_skeleton.o elevator_part_1.o finesleep.o libfdr.a
 	$(CC) $(CFLAGS) -o elevator_part_1 elevator_skeleton.o elevator_part_1.o finesleep.o $(LIBS) -lpthread -lm
 
+elevator_part1: elevator_skeleton.o elevator_part1.o finesleep.o libfdr.a
+	$(CC) $(CFLAGS) -o elevator_part1 elevator_skeleton.o elevator_part1.o finesleep.o $(LIBS) -lpthread -lm
+
 elevator_part_2: elevator_skeleton.o elevator_part_2.o finesleep.o libfdr.a
 	$(CC) $(CFLAGS) -o elevator_part_2 elevator_skeleton.o elevator_part_2.o finesleep.o $(LIBS) -lpthread -lm
+
+elevator_part2: elevator_skeleton.o elevator_part2.o finesleep.o libfdr.a
+	$(CC) $(CFLAGS) -o elevator_part2 elevator_skeleton.o elevator_part2.o finesleep.o $(LIBS) -lpthread -lm
 
 elevator_skeleton.o: elevator.h names.h
 elevator.o: elevator.h

@@ -90,19 +90,17 @@ void person_done(Person *p)
 Dllist check_for_people_to_unload(Elevator *e)
 {
   Dllist unload_list = new_dllist(); //unload_list
-  pthread_mutex_lock(e->lock);
+  pthread_mutex_lock(e->es->lock);
   Dllist item;
   dll_traverse(item,e->people)
   {
     Person *p = (Person*) jval_v(dll_val(item));
     if(p->to == e->onfloor)
     { 
-      item = dll_prev(item);
-      dll_delete_node(dll_next(item));
       dll_append(unload_list, new_jval_v((void *)p));
     }
   }
-  pthread_mutex_unlock(e->lock);
+  pthread_mutex_unlock(e->es->lock);
   return unload_list;
 }
 
@@ -158,7 +156,6 @@ floor, opens its door, signals the person and blocks. When the person wakes it u
 and re-executes its while loop.*/
 void *elevator(void *arg)
 {
-
   Elevator *e = (Elevator *)arg;
   
   while(1)
@@ -181,10 +178,10 @@ void *elevator(void *arg)
     Dllist item;
     dll_traverse(item, unload_list){
       Person *p = (Person*) jval_v(dll_val(item));
-      // if(person == NULL)
-      // {
-      //   continue;
-      // }
+      if(person == NULL)
+      {
+        continue;
+      }
 
       if(!e->door_open)
       {
@@ -207,7 +204,9 @@ void *elevator(void *arg)
     Dllist ite;
     dll_traverse(ite, load_list){
       Person *p = (Person*) jval_v(dll_val(ite));
-    
+      if(person == NULL){
+        continue;
+      }
       if(!e->door_open)
       {
         open_door(e);
@@ -226,8 +225,7 @@ void *elevator(void *arg)
       pthread_cond_wait(e->cond, e->lock);
       pthread_mutex_unlock(e->lock);
     }
-    move(e); 
+    move(e);
   }
-  free_dlliist(global_list);
   return NULL;
 }

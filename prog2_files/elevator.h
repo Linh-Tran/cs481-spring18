@@ -102,3 +102,9 @@ extern void person_done(Person *p);
    its doors using the given procedures. */
 
 extern void *elevator(void *arg);   /* The arg is the thread's Elevator struct */
+
+extern Dllist check_for_people_to_unload(Elevator *e);
+
+extern Dllist check_for_people_to_load(Elevator *e);
+
+extern void move(Elevator *e);
